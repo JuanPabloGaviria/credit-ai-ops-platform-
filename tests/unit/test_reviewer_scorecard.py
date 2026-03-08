@@ -106,6 +106,7 @@ def test_main_writes_markdown_and_json_outputs(
     markdown_output = tmp_path / "reviewer-scorecard.md"
     json_output = tmp_path / "reviewer-scorecard.json"
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
     monkeypatch.setattr(scorecard_module, "_git_commit", lambda: "d" * 40)
     monkeypatch.setattr(scorecard_module, "_git_branch", lambda: "codex/test-branch")
     monkeypatch.setattr(

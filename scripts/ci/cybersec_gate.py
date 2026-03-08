@@ -554,7 +554,8 @@ def _check_build_sign_workflow(
     required_build_patterns = (
         "provenance: mode=max",
         "sbom: true",
-        "aquasecurity/trivy-action",
+        "public.ecr.aws/aquasecurity/trivy:0.56.1",
+        "docker run --rm",
         "cosign verify",
         "actions/attest-build-provenance",
         "scripts/ci/render_image_tfvars.py",

@@ -56,14 +56,20 @@ jobs:
           provenance: mode=max
           sbom: true
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
-        with:
-          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
-          format: table
-          ignore-unfixed: false
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-          exit-code: 1
+        run: |
+          trivy_image="public.ecr.aws/aquasecurity/trivy:0.56.1"
+          mkdir -p "$HOME/.cache/trivy"
+          docker pull "$trivy_image"
+          docker run --rm \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+            "$trivy_image" \
+            image \
+            --format table \
+            --vuln-type os,library \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            "ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
       - name: Install cosign
         uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
       - name: Sign image digest with keyless OIDC
