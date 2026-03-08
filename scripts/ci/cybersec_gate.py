@@ -23,7 +23,14 @@ CI_WORKFLOW_PATH = ROOT / ".github/workflows/ci.yml"
 BUILD_SIGN_WORKFLOW_PATH = ROOT / ".github/workflows/build-sign.yml"
 WORKFLOW_PATHS = (CI_WORKFLOW_PATH, BUILD_SIGN_WORKFLOW_PATH)
 REQUIRED_PYTHON_RANGE = ">=3.11,<3.12"
-REQUIRED_STATUS_CHECKS = ("quality", "container-policy", "secret-scan", "sbom")
+REQUIRED_STATUS_CHECKS = (
+    "quality",
+    "integration-e2e",
+    "supply-chain-verify",
+    "container-policy",
+    "secret-scan",
+    "sbom",
+)
 EXPECTED_CYBERSEC_STEP = "Cybersecurity posture gate"
 REQUIRED_SIGNED_SERVICES = (
     "api-gateway",
@@ -364,6 +371,13 @@ def _extract_job_names(ci_workflow: dict[str, object]) -> set[str]:
     return set(jobs_obj)
 
 
+def _workflow_on_definition(workflow: dict[str, object]) -> object | None:
+    if "on" in workflow:
+        return workflow.get("on")
+    raw_workflow = cast(dict[object, object], workflow)
+    return raw_workflow.get(True)
+
+
 def _extract_job_step_names(job: dict[str, object]) -> set[str]:
     steps_obj = job.get("steps")
     if not isinstance(steps_obj, list):
@@ -443,6 +457,23 @@ def _check_build_sign_workflow(
     failures: list[str],
 ) -> None:
     failures_before = len(failures)
+    on_definition = _workflow_on_definition(build_sign_workflow)
+    if on_definition is None:
+        failures.append("build-sign workflow must define triggers")
+    elif not isinstance(on_definition, dict):
+        failures.append("build-sign workflow triggers must be a mapping")
+    else:
+        on_definition_dict = cast(dict[object, object], on_definition)
+        push_definition = _as_string_object_dict(on_definition_dict.get("push"))
+        if "workflow_dispatch" not in on_definition_dict:
+            failures.append("build-sign workflow must support workflow_dispatch")
+        if push_definition is None:
+            failures.append("build-sign workflow must trigger on pushes to main")
+        else:
+            push_branches = _as_string_list(push_definition.get("branches"))
+            if push_branches is None or "main" not in push_branches:
+                failures.append("build-sign workflow push trigger must include main branch")
+
     jobs_obj = _as_string_object_dict(build_sign_workflow.get("jobs"))
     if jobs_obj is None:
         failures.append("build-sign workflow must define jobs")
@@ -534,7 +565,7 @@ def _check_build_sign_workflow(
             failures.append(f"build-sign workflow must include '{pattern}'")
 
     if len(failures) == failures_before:
-        _print_ok("build-sign workflow signs, scans, and attests all service images")
+        _print_ok("build-sign workflow signs, scans, attests, and auto-runs on main")
 
 
 def _fetch_remote_branch_protection(

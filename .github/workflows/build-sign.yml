@@ -2,6 +2,8 @@ name: build-and-sign
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["main"]
 
 jobs:
   build-sign:

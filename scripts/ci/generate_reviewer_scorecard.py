@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
 ROOT = Path(__file__).resolve().parents[2]
+RECEIPT_MAX_AGE = timedelta(hours=24)
+COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 
 @dataclass(frozen=True)
@@ -25,6 +29,10 @@ class ValidationReceipt:
     command: str
     status: str
     receipt_path: str
+    generated_at_utc: str
+    git_commit: str
+    git_branch: str
+    ci_run_id: str | None
 
 
 @dataclass(frozen=True)
@@ -105,10 +113,12 @@ def generate_scorecard(
                 title="Async Runtime Reliability",
                 outcome=(
                     "The credit decision chain is verified through relay-only integration tests "
-                    "with append-only history and audit capture."
+                    "and real HTTP end-to-end gateway execution with append-only history and "
+                    "audit capture."
                 ),
                 evidence=[
                     "tests/integration/test_async_credit_chain.py",
+                    "tests/e2e/test_gateway_http_stack.py",
                     "packages/shared-kernel/src/shared_kernel/outbox.py",
                     "packages/shared-kernel/src/shared_kernel/resilience.py",
                 ],
@@ -131,7 +141,8 @@ def render_markdown(payload: ScorecardPayload) -> str:
     lines.extend(
         (
             f"- {validation.label}: `{validation.status}` "
-            f"`{validation.command}` ({validation.receipt_path})"
+            f"`{validation.command}` ({validation.receipt_path}, "
+            f"commit={validation.git_commit[:12]})"
         )
         for validation in payload.validations
     )
@@ -205,10 +216,43 @@ def _existing_validation_receipt(value: str) -> ValidationReceipt:
     payload_dict = cast(dict[str, object], payload)
     command = payload_dict.get("command")
     status = payload_dict.get("status")
+    generated_at = payload_dict.get("generated_at_utc")
+    git_commit = payload_dict.get("git_commit")
+    git_branch = payload_dict.get("git_branch")
+    ci_run_id = payload_dict.get("ci_run_id")
     if not isinstance(command, str) or command.strip() == "":
         raise ValueError(f"validation receipt command must be a non-empty string: {path}")
     if status not in {"PASS", "FAIL"}:
         raise ValueError(f"validation receipt status must be PASS or FAIL: {path}")
+    if not isinstance(generated_at, str):
+        raise ValueError(f"validation receipt must include generated_at_utc: {path}")
+    generated_at_utc = _parse_utc_timestamp(generated_at, path=path)
+    if datetime.now(tz=UTC) - generated_at_utc > RECEIPT_MAX_AGE:
+        raise ValueError(f"validation receipt is older than {RECEIPT_MAX_AGE}: {path}")
+    if not isinstance(git_commit, str) or not COMMIT_PATTERN.fullmatch(git_commit):
+        raise ValueError(f"validation receipt must include a 40-char git_commit: {path}")
+    current_commit = _git_commit()
+    if git_commit != current_commit:
+        raise ValueError(
+            "validation receipt git_commit does not match current HEAD: "
+            f"{git_commit} != {current_commit}"
+        )
+    if not isinstance(git_branch, str) or git_branch.strip() == "":
+        raise ValueError(f"validation receipt must include git_branch: {path}")
+    if ci_run_id is not None and not isinstance(ci_run_id, str):
+        raise ValueError(f"validation receipt ci_run_id must be a string when provided: {path}")
+    current_ci_run_id = os.getenv("GITHUB_RUN_ID")
+    if current_ci_run_id is not None:
+        if ci_run_id is None:
+            raise ValueError(
+                "validation receipt must include ci_run_id when generated under GitHub Actions: "
+                f"{path}"
+            )
+        if ci_run_id != current_ci_run_id:
+            raise ValueError(
+                "validation receipt ci_run_id does not match current GitHub Actions run: "
+                f"{ci_run_id} != {current_ci_run_id}"
+            )
     normalized_status = cast(str, status)
     try:
         display_path = str(path.relative_to(ROOT))
@@ -219,7 +263,21 @@ def _existing_validation_receipt(value: str) -> ValidationReceipt:
         command=command,
         status=normalized_status,
         receipt_path=display_path,
+        generated_at_utc=generated_at_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        git_commit=git_commit,
+        git_branch=git_branch,
+        ci_run_id=ci_run_id,
     )
+
+
+def _parse_utc_timestamp(value: str, *, path: Path) -> datetime:
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as exc:
+        raise ValueError(
+            f"validation receipt generated_at_utc must be RFC3339 UTC: {path}"
+        ) from exc
+    return parsed.replace(tzinfo=UTC)
 
 
 def _parse_args() -> argparse.Namespace:

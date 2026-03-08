@@ -47,6 +47,113 @@ jobs:
       - name: ADR governance gate
         run: make adr-gate
 
+  integration-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.9-alpine
+        env:
+          POSTGRES_DB: credit_ai_ops
+          POSTGRES_USER: credit
+          POSTGRES_PASSWORD: credit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U credit -d credit_ai_ops"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip==25.0.1
+          python -m pip install --require-hashes -r requirements/lock/dev.lock
+      - name: Integration and end-to-end verification
+        env:
+          POSTGRES_DSN: postgresql://credit:credit@localhost:5432/credit_ai_ops
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+        run: |
+          pytest tests/integration/test_async_credit_chain.py -q
+          pytest tests/e2e/test_gateway_http_stack.py -q
+
+  supply-chain-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api-gateway
+            dockerfile: services/api-gateway/Dockerfile
+          - service: application
+            dockerfile: services/application/Dockerfile
+          - service: feature
+            dockerfile: services/feature/Dockerfile
+          - service: scoring
+            dockerfile: services/scoring/Dockerfile
+          - service: decision
+            dockerfile: services/decision/Dockerfile
+          - service: collab-assistant
+            dockerfile: services/collab-assistant/Dockerfile
+          - service: mlops
+            dockerfile: services/mlops/Dockerfile
+          - service: observability-audit
+            dockerfile: services/observability-audit/Dockerfile
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build local image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: local/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Scan built image for vulnerabilities
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        with:
+          image-ref: local/${{ matrix.service }}:${{ github.sha }}
+          format: table
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+  supply-chain-verify:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: supply-chain-build
+    steps:
+      - name: Enforce supply-chain verification success
+        run: |
+          if [[ "${{ needs.supply-chain-build.result }}" != "success" ]]; then
+            echo "supply-chain-build result=${{ needs.supply-chain-build.result }}"
+            exit 1
+          fi
+
   container-policy:
     runs-on: ubuntu-latest
     steps:

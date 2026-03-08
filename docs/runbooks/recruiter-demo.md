@@ -2,7 +2,7 @@
 
 ## Objective
 Provide one command that validates the platform with security controls, integration evidence,
-and async pipeline baseline checks.
+and real networked execution evidence.
 
 ## Command
 ```bash
@@ -20,9 +20,10 @@ make release-ready
 3. Applies all service migrations
 4. Generates deterministic MLOps evidence artifacts (`build/recruiter-ml-evidence.json`)
 5. Runs bank-grade cybersecurity gate (`make bank-cybersec-gate`)
-6. Runs integration tests plus async pipeline baseline checks (`pytest -m "integration or perf"`)
-7. Writes a report to `build/recruiter-demo-report.md`
-8. Generates reviewer scorecard artifacts (`build/reviewer-scorecard.md`, `build/reviewer-scorecard.json`)
+6. Runs the relay-only async credit chain integration test (`pytest tests/integration/test_async_credit_chain.py -q`)
+7. Runs the real HTTP gateway end-to-end test (`pytest tests/e2e/test_gateway_http_stack.py -q`)
+8. Writes a report to `build/recruiter-demo-report.md`
+9. Generates reviewer scorecard artifacts (`build/reviewer-scorecard.md`, `build/reviewer-scorecard.json`)
 
 ## Expected Output
 - Console line: `[recruiter-demo] recruiter demo passed`
