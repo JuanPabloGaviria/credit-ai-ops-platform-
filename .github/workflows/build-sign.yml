@@ -38,7 +38,22 @@ jobs:
       - name: Normalize image repository
         id: image-repository
         run: |
-          printf 'value=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          import re
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          normalized_components: list[str] = []
+          for component in repository.split("/"):
+              normalized = re.sub(r"[^a-z0-9._-]+", "-", component.lower()).strip("._-")
+              if normalized == "":
+                  raise SystemExit(
+                      f"unable to normalize OCI repository component from {component!r}"
+                  )
+              normalized_components.append(normalized)
+
+          print(f"value=ghcr.io/{'/'.join(normalized_components)}")
+          PY
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       - name: Login GHCR
