@@ -72,6 +72,41 @@ def test_cybersec_gate_non_strict_mode_allows_best_effort_github_token(
     assert main() == 0
 
 
+def test_cybersec_gate_non_strict_mode_reports_remote_drift_without_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    expected_secret = "-".join(("branch", "protection", "drift", "credential"))
+    monkeypatch.setenv("BRANCH_PROTECTION_TOKEN", expected_secret)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "example/repo")
+    monkeypatch.setenv("ENFORCE_REMOTE_BRANCH_PROTECTION", "0")
+
+    module = _load_module()
+
+    def _drifted_payload(repository: str, branch_name: str, token: str) -> dict[str, object]:
+        assert repository == "example/repo"
+        assert branch_name == "main"
+        assert token == expected_secret
+        return {
+            "required_status_checks": {"contexts": ["quality"]},
+            "required_pull_request_reviews": {
+                "required_approving_review_count": 0,
+                "dismiss_stale_reviews": True,
+            },
+            "allow_force_pushes": {"enabled": False},
+            "allow_deletions": {"enabled": False},
+            "required_conversation_resolution": {"enabled": True},
+        }
+
+    monkeypatch.setattr(module, "_fetch_remote_branch_protection", _drifted_payload)
+    main = module.main
+    assert callable(main)
+    assert main() == 0
+    output = capsys.readouterr().out
+    assert "best-effort validation only outside protected-branch enforcement" in output
+    assert "remote branch protection matches repository policy" not in output
+
+
 def test_cybersec_gate_uses_branch_protection_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -103,6 +138,37 @@ def test_cybersec_gate_uses_branch_protection_token(
     main = module.main
     assert callable(main)
     assert main() == 0
+
+
+def test_cybersec_gate_strict_mode_fails_on_remote_policy_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_secret = "-".join(("branch", "protection", "strict", "credential"))
+    monkeypatch.setenv("BRANCH_PROTECTION_TOKEN", expected_secret)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "example/repo")
+    monkeypatch.setenv("ENFORCE_REMOTE_BRANCH_PROTECTION", "1")
+
+    module = _load_module()
+
+    def _drifted_payload(repository: str, branch_name: str, token: str) -> dict[str, object]:
+        assert repository == "example/repo"
+        assert branch_name == "main"
+        assert token == expected_secret
+        return {
+            "required_status_checks": {"contexts": ["quality"]},
+            "required_pull_request_reviews": {
+                "required_approving_review_count": 0,
+                "dismiss_stale_reviews": True,
+            },
+            "allow_force_pushes": {"enabled": False},
+            "allow_deletions": {"enabled": False},
+            "required_conversation_resolution": {"enabled": True},
+        }
+
+    monkeypatch.setattr(module, "_fetch_remote_branch_protection", _drifted_payload)
+    main = module.main
+    assert callable(main)
+    assert main() == 1
 
 
 def test_check_terraform_pinning_requires_model_signing_controls() -> None:

@@ -598,6 +598,7 @@ def _check_remote_branch_protection(
         return
 
     failures_before = len(failures)
+    remote_policy_clean = True
     for policy in branch_policies:
         branch_name = policy.get("name")
         if not isinstance(branch_name, str):
@@ -605,6 +606,7 @@ def _check_remote_branch_protection(
         required_checks = _as_string_list(policy.get("required_status_checks"))
         if required_checks is None:
             continue
+        remote_findings: list[str] = []
 
         try:
             remote_payload = _fetch_remote_branch_protection(repository, branch_name, token)
@@ -629,9 +631,12 @@ def _check_remote_branch_protection(
                     "BRANCH_PROTECTION_TOKEN to enforce this control."
                 )
                 return
-            failures.append(
-                f"unable to validate remote branch protection for '{branch_name}': {exc}"
-            )
+            message = f"unable to validate remote branch protection for '{branch_name}': {exc}"
+            if strict:
+                failures.append(message)
+            else:
+                remote_policy_clean = False
+                _print_note(message)
             continue
 
         remote_checks_obj = _as_string_object_dict(remote_payload.get("required_status_checks"))
@@ -641,47 +646,64 @@ def _check_remote_branch_protection(
             else None
         )
         if remote_contexts is None:
-            failures.append(f"remote branch '{branch_name}' is missing required status checks")
+            remote_findings.append(
+                f"remote branch '{branch_name}' is missing required status checks"
+            )
         else:
             missing_checks = sorted(set(required_checks).difference(remote_contexts))
             if missing_checks:
-                failures.append(
+                remote_findings.append(
                     f"remote branch '{branch_name}' is missing status checks: "
                     + ", ".join(missing_checks)
                 )
 
         remote_reviews = _as_string_object_dict(remote_payload.get("required_pull_request_reviews"))
         if policy.get("require_pull_request") is True and remote_reviews is None:
-            failures.append(f"remote branch '{branch_name}' must require pull request reviews")
+            remote_findings.append(
+                f"remote branch '{branch_name}' must require pull request reviews"
+            )
         if remote_reviews is not None:
             approval_count = remote_reviews.get("required_approving_review_count")
             expected_approvals = policy.get("required_approving_review_count")
             if approval_count != expected_approvals:
-                failures.append(
+                remote_findings.append(
                     f"remote branch '{branch_name}' approval count must be {expected_approvals}, "
                     f"got {approval_count}"
                 )
             if remote_reviews.get("dismiss_stale_reviews") != policy.get("dismiss_stale_reviews"):
-                failures.append(
+                remote_findings.append(
                     f"remote branch '{branch_name}' dismiss_stale_reviews does not match policy"
                 )
 
         if _remote_flag(remote_payload, "allow_force_pushes") != policy.get("allow_force_pushes"):
-            failures.append(
+            remote_findings.append(
                 f"remote branch '{branch_name}' allow_force_pushes does not match policy"
             )
         if _remote_flag(remote_payload, "allow_deletions") != policy.get("allow_deletions"):
-            failures.append(f"remote branch '{branch_name}' allow_deletions does not match policy")
+            remote_findings.append(
+                f"remote branch '{branch_name}' allow_deletions does not match policy"
+            )
         if _remote_flag(
             remote_payload,
             "required_conversation_resolution",
         ) != policy.get("require_conversation_resolution"):
-            failures.append(
+            remote_findings.append(
                 "remote branch "
                 f"'{branch_name}' required_conversation_resolution does not match policy"
             )
 
-    if len(failures) == failures_before:
+        if remote_findings:
+            remote_policy_clean = False
+            if strict:
+                failures.extend(remote_findings)
+            else:
+                for finding in remote_findings:
+                    _print_note(
+                        f"{finding} "
+                        "(best-effort validation only outside protected-branch enforcement)"
+                    )
+
+    if remote_policy_clean and len(failures) == failures_before:
         _print_ok("remote branch protection matches repository policy")
 
 
