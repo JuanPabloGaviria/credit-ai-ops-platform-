@@ -31,6 +31,8 @@ paths:
   /v1/features/status:
     get:
       summary: feature operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/features/materialize:
     post:
       summary: Materialize the canonical scoring feature vector from an application payload
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:

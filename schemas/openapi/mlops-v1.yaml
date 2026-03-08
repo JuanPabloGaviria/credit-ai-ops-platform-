@@ -31,6 +31,8 @@ paths:
   /v1/mlops/status:
     get:
       summary: MLOps service status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/mlops/train:
     post:
       summary: Train a deterministic logistic-regression model package
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyRequired'
       requestBody:
@@ -75,6 +79,8 @@ paths:
   /v1/mlops/evaluate:
     post:
       summary: Evaluate a deterministic training run against policy thresholds
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyRequired'
       requestBody:
@@ -101,6 +107,8 @@ paths:
   /v1/mlops/register:
     post:
       summary: Register an immutable candidate model after training and evaluation policy checks
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyRequired'
       requestBody:
@@ -129,6 +137,8 @@ paths:
   /v1/mlops/promote:
     post:
       summary: Promote a registered model into a controlled stage with approval lineage
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyRequired'
       requestBody:
@@ -157,6 +167,8 @@ paths:
   /v1/mlops/runs/{run_id}:
     get:
       summary: Fetch an immutable training run record
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: run_id

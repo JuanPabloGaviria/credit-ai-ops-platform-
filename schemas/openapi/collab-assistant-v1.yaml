@@ -31,6 +31,8 @@ paths:
   /v1/assistant/status:
     get:
       summary: collab-assistant operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/assistant/summarize:
     post:
       summary: Generate the deterministic collaborator summary and persist it
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
@@ -73,6 +77,8 @@ paths:
   /v1/assistant/summaries/{application_id}:
     get:
       summary: Retrieve the latest persisted assistant summary for an application
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: application_id

@@ -148,6 +148,11 @@ def _lint_openapi_route_coverage(file_path: Path, document: Mapping[str, object]
                 path_item.get(method),
                 context=f"{file_path.name} path {path_name} {method}",
             )
+            if path_name.startswith("/v1/") and "security" not in operation:
+                _fail(
+                    f"Missing explicit operation-level security for "
+                    f"{method.upper()} {path_name} in {file_path.name}"
+                )
             effective_security = operation.get("security", document_security)
             if path_name.startswith("/v1/") and not _contains_bearer_security(effective_security):
                 _fail(

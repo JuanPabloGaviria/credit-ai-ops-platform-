@@ -31,6 +31,8 @@ paths:
   /v1/decisions/status:
     get:
       summary: decision operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/decisions/evaluate:
     post:
       summary: Evaluate the decision policy for a score payload and return an explainable result
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:

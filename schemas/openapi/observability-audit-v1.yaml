@@ -31,6 +31,8 @@ paths:
   /v1/audit/status:
     get:
       summary: observability-audit operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/audit/events:
     post:
       summary: Persist a redacted audit event
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
@@ -72,6 +76,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
     get:
       summary: Query redacted audit events
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
         - in: query
@@ -115,6 +121,8 @@ paths:
   /v1/audit/events/{event_id}:
     get:
       summary: Retrieve a redacted audit event by id
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: event_id
@@ -141,6 +149,8 @@ paths:
   /v1/audit/traces/{trace_id}:
     get:
       summary: List audit events for a trace id
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: trace_id

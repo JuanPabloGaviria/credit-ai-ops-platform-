@@ -31,6 +31,8 @@ paths:
   /v1/scores/status:
     get:
       summary: scoring operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/scores/predict:
     post:
       summary: Score a feature vector with the latest promoted model for the configured stage
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:

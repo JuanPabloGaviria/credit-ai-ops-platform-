@@ -31,6 +31,8 @@ paths:
   /v1/applications/status:
     get:
       summary: application operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/applications/intake:
     post:
       summary: Accept a credit application and enqueue the async processing chain
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:

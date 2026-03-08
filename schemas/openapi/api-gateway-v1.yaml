@@ -31,6 +31,8 @@ paths:
   /v1/gateway/status:
     get:
       summary: api-gateway operational status
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       responses:
@@ -49,6 +51,8 @@ paths:
   /v1/gateway/credit-evaluate:
     post:
       summary: Evaluate a credit application through the real feature, scoring, and decision services
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyRequired'
       requestBody:
