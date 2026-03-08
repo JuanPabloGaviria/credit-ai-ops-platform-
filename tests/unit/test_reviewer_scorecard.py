@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -13,7 +14,7 @@ def _receipt_payload(
     *,
     command: str = "make bank-cybersec-gate",
     status: str = "PASS",
-    generated_at_utc: str = "2026-03-07T22:00:00Z",
+    generated_at_utc: str | None = None,
     git_commit: str = "d" * 40,
     git_branch: str = "codex/test-branch",
     ci_run_id: str | None = None,
@@ -21,7 +22,10 @@ def _receipt_payload(
     payload = {
         "command": command,
         "status": status,
-        "generated_at_utc": generated_at_utc,
+        "generated_at_utc": (
+            generated_at_utc
+            or datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ),
         "git_commit": git_commit,
         "git_branch": git_branch,
     }
