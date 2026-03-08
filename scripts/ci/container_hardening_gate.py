@@ -9,7 +9,7 @@ SERVICES_DIR = ROOT / "services"
 DOCKERIGNORE_PATH = ROOT / ".dockerignore"
 
 REQUIRED_BASE_IMAGE = (
-    "python:3.11.11-slim-bookworm@sha256:081075da77b2b55c23c088251026fb69a7b2bf92471e491ff5fd75c192fd38e5"
+    "python:3.11.14-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d"
 )
 REQUIRED_DOCKERIGNORE_PATTERNS = (
     ".git",
@@ -28,6 +28,7 @@ REQUIRED_DOCKERFILE_PATTERNS = (
     "FROM ${PYTHON_BASE_IMAGE} AS runtime",
     "RUN python -m venv /opt/venv",
     "pip install --require-hashes -r /app/requirements/base.lock",
+    "python -m pip uninstall -y wheel setuptools pip",
     "COPY --from=builder --chown=app:app /opt/venv /opt/venv",
     "COPY --chown=app:app packages /app/packages",
     "COPY --chown=app:app scripts/docker /app/scripts/docker",

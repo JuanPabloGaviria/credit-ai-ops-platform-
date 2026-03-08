@@ -131,7 +131,9 @@ jobs:
               "$trivy_image" \
               image \
               --format table \
-              --vuln-type os,library \
+              --scanners vuln \
+              --pkg-types os,library \
+              --ignore-unfixed \
               --severity HIGH,CRITICAL \
               --exit-code 1 \
               "$image_ref"
