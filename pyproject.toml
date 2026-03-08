@@ -42,6 +42,7 @@ dependencies = [
 dev = [
   "ruff==0.12.8",
   "mypy==1.17.1",
+  "pyright==1.1.405",
   "pytest==8.4.1",
   "pytest-timeout==2.4.0",
   "pytest-cov==6.2.1",

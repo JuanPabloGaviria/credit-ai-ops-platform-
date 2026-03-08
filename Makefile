@@ -10,7 +10,7 @@ type-check:
 	mypy .
 
 pyright-check:
-	pyright
+	python -m pyright
 
 unit-tests:
 	@mkdir -p build
