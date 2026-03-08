@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EventEnvelope",
+  "type": "object",
+  "required": ["event_name", "event_id", "trace_id", "correlation_id", "producer", "occurred_at", "payload"],
+  "properties": {
+    "event_name": {"type": "string", "pattern": "^[a-z]+\\.[a-z_]+\\.[a-z_]+\\.v[0-9]+$"},
+    "event_id": {"type": "string", "minLength": 8},
+    "trace_id": {"type": "string", "minLength": 8},
+    "correlation_id": {"type": "string", "minLength": 8},
+    "causation_id": {"type": ["string", "null"], "minLength": 8},
+    "producer": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": false
+}

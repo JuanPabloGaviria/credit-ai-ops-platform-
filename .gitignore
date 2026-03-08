@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.nox/
+.terraform/
+*.tfstate
+*.tfstate.*
+.coverage
+coverage.xml
+htmlcov/
+build/
+*.egg-info/
+.DS_Store

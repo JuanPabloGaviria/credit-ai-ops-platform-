@@ -1,0 +1,199 @@
+openapi: 3.1.0
+info:
+  title: decision API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service health status
+  /ready:
+    get:
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service readiness status
+  /metrics:
+    get:
+      summary: Metrics endpoint
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics payload
+  /v1/decisions/status:
+    get:
+      summary: decision operational status
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        "200":
+          description: Service-specific status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatusResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /v1/decisions/evaluate:
+    post:
+      summary: Evaluate the decision policy for a score payload and return an explainable result
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionRequest'
+      responses:
+        "200":
+          description: Policy decision response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResult'
+              examples:
+                reviewed:
+                  value:
+                    application_id: app-000123
+                    risk_score: 0.612341
+                    decision: review
+                    reason_codes:
+                      - HIGH_DTI
+                      - HIGH_REQUEST_RATIO
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKeyOptional:
+      in: header
+      name: x-idempotency-key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+  responses:
+    InvalidRequest:
+      description: Invalid request payload or idempotency header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Token is valid but missing required audience or scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ServiceStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [service, status]
+      properties:
+        service:
+          type: string
+          const: decision
+        status:
+          type: string
+          const: operational
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error_code, message, service, operation, trace_id, timestamp]
+      properties:
+        error_code:
+          type: string
+          minLength: 3
+        message:
+          type: string
+          minLength: 1
+        service:
+          type: string
+          minLength: 1
+        operation:
+          type: string
+          minLength: 1
+        trace_id:
+          type: string
+          minLength: 8
+        cause:
+          type:
+            - string
+            - "null"
+        hint:
+          type:
+            - string
+            - "null"
+        timestamp:
+          type: string
+          format: date-time
+    DecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [application_id, risk_score, requested_amount, reason_codes]
+      properties:
+        application_id:
+          type: string
+          minLength: 8
+        risk_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        requested_amount:
+          type: number
+          exclusiveMinimum: 0
+        reason_codes:
+          type: array
+          items:
+            type: string
+    DecisionResult:
+      type: object
+      additionalProperties: false
+      required: [application_id, risk_score, decision, reason_codes]
+      properties:
+        application_id:
+          type: string
+          minLength: 8
+        risk_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        decision:
+          type: string
+          pattern: "^(approve|review|decline)$"
+        reason_codes:
+          type: array
+          items:
+            type: string

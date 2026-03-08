@@ -1,0 +1,3 @@
+from typing import Any
+
+def roc_auc_score(y_true: Any, y_score: Any) -> float: ...
