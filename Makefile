@@ -25,8 +25,8 @@ coverage-gate:
 pre-commit-gate: lint type-check pyright-check docs-audience-lint unit-tests coverage-gate contract-lint adr-gate container-policy
 
 security-scan:
-	bandit -r packages services scripts -x tests
-	pip-audit -r requirements/lock/dev.lock
+	$(PYTHON) -m bandit -r packages services scripts -x tests
+	$(PYTHON) -m pip_audit -r requirements/lock/dev.lock --progress-spinner off --timeout 30
 
 secret-scan:
 	@if command -v gitleaks >/dev/null 2>&1; then \
