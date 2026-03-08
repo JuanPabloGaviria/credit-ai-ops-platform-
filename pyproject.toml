@@ -92,6 +92,7 @@ markers = [
   "unit: unit tests",
   "contract: contract tests",
   "integration: integration tests",
+  "e2e: real end-to-end tests against networked service processes and persistent dependencies",
   "smoke: local smoke tests that are useful for fast regression checks but not deployment evidence",
   "perf: performance tests",
 ]
