@@ -35,6 +35,10 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Normalize image repository
+        id: image-repository
+        run: |
+          printf 'value=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       - name: Login GHCR
@@ -50,7 +54,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ github.sha }}
+          tags: ${{ steps.image-repository.outputs.value }}/${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
@@ -71,23 +75,23 @@ jobs:
             --ignore-unfixed \
             --severity HIGH,CRITICAL \
             --exit-code 1 \
-            "ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
+            "${{ steps.image-repository.outputs.value }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
       - name: Install cosign
         uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
       - name: Sign image digest with keyless OIDC
         run: |
           cosign sign --yes \
-            ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+            "${{ steps.image-repository.outputs.value }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
       - name: Verify image signature
         run: |
           cosign verify \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/build-sign.yml@.*" \
-            ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+            "${{ steps.image-repository.outputs.value }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
       - name: Attest build provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
-          subject-name: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          subject-name: ${{ steps.image-repository.outputs.value }}/${{ matrix.service }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
       - name: Write digest reference
@@ -95,7 +99,7 @@ jobs:
           mkdir -p build
           printf '%s=%s\n' \
             "${{ matrix.service }}" \
-            "ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}" \
+            "${{ steps.image-repository.outputs.value }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}" \
             > "build/${{ matrix.service }}.digest"
       - name: Upload per-service digest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
