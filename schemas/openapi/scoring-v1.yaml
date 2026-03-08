@@ -1,0 +1,229 @@
+openapi: 3.1.0
+info:
+  title: scoring API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service health status
+  /ready:
+    get:
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service readiness status
+  /metrics:
+    get:
+      summary: Metrics endpoint
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics payload
+  /v1/scores/status:
+    get:
+      summary: scoring operational status
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        "200":
+          description: Service-specific status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatusResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /v1/scores/predict:
+    post:
+      summary: Score a feature vector with the latest promoted model for the configured stage
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeatureVector'
+      responses:
+        "200":
+          description: Deterministic score prediction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScorePrediction'
+              examples:
+                prediction:
+                  value:
+                    application_id: app-000123
+                    requested_amount: 15000
+                    risk_score: 0.231874
+                    model_version: credit-risk.2026-03-07
+                    reason_codes:
+                      - LOW_RISK_PROFILE
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalModelError'
+        "503":
+          $ref: '#/components/responses/ModelUnavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKeyOptional:
+      in: header
+      name: x-idempotency-key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+  responses:
+    InvalidRequest:
+      description: Invalid request payload or idempotency header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Token is valid but missing required audience or scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalModelError:
+      description: Promoted model artifact failed digest or schema validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ModelUnavailable:
+      description: No promoted scoring model is available for the configured stage
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ServiceStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [service, status]
+      properties:
+        service:
+          type: string
+          const: scoring
+        status:
+          type: string
+          const: operational
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error_code, message, service, operation, trace_id, timestamp]
+      properties:
+        error_code:
+          type: string
+          minLength: 3
+        message:
+          type: string
+          minLength: 1
+        service:
+          type: string
+          minLength: 1
+        operation:
+          type: string
+          minLength: 1
+        trace_id:
+          type: string
+          minLength: 8
+        cause:
+          type:
+            - string
+            - "null"
+        hint:
+          type:
+            - string
+            - "null"
+        timestamp:
+          type: string
+          format: date-time
+    FeatureVector:
+      type: object
+      additionalProperties: false
+      required:
+        - application_id
+        - requested_amount
+        - debt_to_income
+        - amount_to_income
+        - credit_history_months
+        - existing_defaults
+      properties:
+        application_id:
+          type: string
+          minLength: 8
+        requested_amount:
+          type: number
+          exclusiveMinimum: 0
+        debt_to_income:
+          type: number
+          minimum: 0
+        amount_to_income:
+          type: number
+          minimum: 0
+        credit_history_months:
+          type: integer
+          minimum: 0
+        existing_defaults:
+          type: integer
+          minimum: 0
+    ScorePrediction:
+      type: object
+      additionalProperties: false
+      required:
+        - application_id
+        - requested_amount
+        - risk_score
+        - model_version
+        - reason_codes
+      properties:
+        application_id:
+          type: string
+          minLength: 8
+        requested_amount:
+          type: number
+          exclusiveMinimum: 0
+        risk_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        model_version:
+          type: string
+          minLength: 3
+        reason_codes:
+          type: array
+          items:
+            type: string

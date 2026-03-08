@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ErrorEnvelope",
+  "type": "object",
+  "required": ["error_code", "message", "service", "operation", "trace_id", "timestamp"],
+  "properties": {
+    "error_code": {"type": "string", "minLength": 3},
+    "message": {"type": "string", "minLength": 1},
+    "service": {"type": "string", "minLength": 1},
+    "operation": {"type": "string", "minLength": 1},
+    "trace_id": {"type": "string", "minLength": 8},
+    "cause": {"type": ["string", "null"]},
+    "hint": {"type": ["string", "null"]},
+    "timestamp": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
+
+[project]
+name = "credit-ai-ops-platform"
+version = "0.1.0"
+description = "S+++ credit AI ops platform monorepo"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+authors = [{ name = "Juan Pablo Gaviria" }]
+license = { text = "MIT" }
+dependencies = [
+  "fastapi==0.135.1",
+  "uvicorn==0.35.0",
+  "starlette==0.49.1",
+  "aio-pika==9.5.8",
+  "asyncpg==0.30.0",
+  "azure-identity==1.25.1",
+  "azure-storage-blob==12.27.0",
+  "pydantic==2.11.7",
+  "pydantic-settings==2.10.1",
+  "httpx==0.28.1",
+  "numpy==2.3.3",
+  "pyjwt[crypto]==2.10.1",
+  "scikit-learn==1.7.2",
+  "urllib3==2.6.3",
+  "structlog==25.4.0",
+  "prometheus-client==0.23.1",
+  "opentelemetry-api==1.37.0",
+  "opentelemetry-exporter-otlp-proto-grpc==1.37.0",
+  "opentelemetry-sdk==1.37.0",
+  "opentelemetry-exporter-otlp-proto-http==1.37.0",
+  "tenacity==9.1.2",
+  "pyyaml==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff==0.12.8",
+  "mypy==1.17.1",
+  "pytest==8.4.1",
+  "pytest-timeout==2.4.0",
+  "pytest-cov==6.2.1",
+  "hypothesis==6.139.2",
+  "bandit==1.8.6",
+  "pip-audit==2.9.0",
+  "pip-tools==7.5.3",
+  "cyclonedx-bom==7.1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = [
+  "packages/shared-kernel/src",
+  "packages/contracts/src",
+  "packages/observability/src",
+  "packages/security/src",
+  "services",
+  "tests",
+  "scripts",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "A", "N", "C4", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+mypy_path = "typings:packages/shared-kernel/src:packages/contracts/src:packages/observability/src:packages/security/src:services/api-gateway/src:services/application/src:services/feature/src:services/scoring/src:services/decision/src:services/collab-assistant/src:services/mlops/src:services/observability-audit/src"
+exclude = ["infra", "docs"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config --maxfail=1 --timeout=45 --timeout_method=thread --durations=10"
+log_cli = true
+log_cli_level = "INFO"
+testpaths = ["tests"]
+markers = [
+  "unit: unit tests",
+  "contract: contract tests",
+  "integration: integration tests",
+  "smoke: local smoke tests that are useful for fast regression checks but not deployment evidence",
+  "perf: performance tests",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs"]

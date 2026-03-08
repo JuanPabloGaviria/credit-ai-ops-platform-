@@ -1,0 +1,77 @@
+asyncapi: 2.6.0
+info:
+  title: Credit AI Ops Platform Events
+  version: 1.0.0
+channels:
+  credit.application.submitted.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.feature.materialized.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.scoring.generated.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.decision.made.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.assistant.summarized.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.decision.overridden.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.model.promoted.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+  credit.drift.detected.v1:
+    publish:
+      message:
+        $ref: '#/components/messages/EventEnvelope'
+components:
+  messages:
+    EventEnvelope:
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+          - event_name
+          - event_id
+          - trace_id
+          - correlation_id
+          - producer
+          - occurred_at
+          - payload
+        properties:
+          event_name:
+            type: string
+            pattern: "^[a-z]+\\.[a-z_]+\\.[a-z_]+\\.v[0-9]+$"
+          event_id:
+            type: string
+            minLength: 8
+          trace_id:
+            type: string
+            minLength: 8
+          correlation_id:
+            type: string
+            minLength: 8
+          causation_id:
+            type:
+              - string
+              - "null"
+            minLength: 8
+          producer:
+            type: string
+            minLength: 1
+          occurred_at:
+            type: string
+            format: date-time
+          payload:
+            type: object

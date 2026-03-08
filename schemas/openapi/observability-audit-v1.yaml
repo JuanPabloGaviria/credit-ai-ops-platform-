@@ -1,0 +1,319 @@
+openapi: 3.1.0
+info:
+  title: observability-audit API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service health status
+  /ready:
+    get:
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service readiness status
+  /metrics:
+    get:
+      summary: Metrics endpoint
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics payload
+  /v1/audit/status:
+    get:
+      summary: observability-audit operational status
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        "200":
+          description: Service-specific status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatusResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /v1/audit/events:
+    post:
+      summary: Persist a redacted audit event
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditWriteRequest'
+      responses:
+        "200":
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditWriteResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+    get:
+      summary: Query redacted audit events
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+        - in: query
+          name: event_name
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: trace_id
+          required: false
+          schema:
+            type: string
+            minLength: 8
+        - in: query
+          name: correlation_id
+          required: false
+          schema:
+            type: string
+            minLength: 8
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Audit event list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventListResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /v1/audit/events/{event_id}:
+    get:
+      summary: Retrieve a redacted audit event by id
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema:
+            type: string
+            minLength: 8
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        "200":
+          description: Audit event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+  /v1/audit/traces/{trace_id}:
+    get:
+      summary: List audit events for a trace id
+      parameters:
+        - in: path
+          name: trace_id
+          required: true
+          schema:
+            type: string
+            minLength: 8
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+      responses:
+        "200":
+          description: Trace-scoped audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventListResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKeyOptional:
+      in: header
+      name: x-idempotency-key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+  responses:
+    InvalidRequest:
+      description: Invalid event payload, query filter, or idempotency header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Token is valid but missing required audience or scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Audit event was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ServiceStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [service, status]
+      properties:
+        service:
+          type: string
+          const: observability-audit
+        status:
+          type: string
+          const: operational
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error_code, message, service, operation, trace_id, timestamp]
+      properties:
+        error_code:
+          type: string
+          minLength: 3
+        message:
+          type: string
+          minLength: 1
+        service:
+          type: string
+          minLength: 1
+        operation:
+          type: string
+          minLength: 1
+        trace_id:
+          type: string
+          minLength: 8
+        cause:
+          type:
+            - string
+            - "null"
+        hint:
+          type:
+            - string
+            - "null"
+        timestamp:
+          type: string
+          format: date-time
+    AuditWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [event_name, payload]
+      properties:
+        event_name:
+          type: string
+          pattern: "^[a-z]+\\.[a-z_]+\\.[a-z_]+\\.v[0-9]+$"
+        payload:
+          type: object
+    AuditWriteResponse:
+      type: object
+      additionalProperties: false
+      required: [status, event_name, payload, event_id]
+      properties:
+        status:
+          type: string
+          const: accepted
+        event_name:
+          type: string
+        payload:
+          type: object
+        event_id:
+          type: string
+          minLength: 8
+    AuditEventResponse:
+      type: object
+      additionalProperties: false
+      required: [event_id, event_name, payload, correlation_id, created_at]
+      properties:
+        event_id:
+          type: string
+          minLength: 8
+        event_name:
+          type: string
+        payload:
+          type: object
+        trace_id:
+          type:
+            - string
+            - "null"
+          minLength: 8
+        correlation_id:
+          type: string
+          minLength: 8
+        causation_id:
+          type:
+            - string
+            - "null"
+          minLength: 8
+        created_at:
+          type: string
+          format: date-time
+    AuditEventListResponse:
+      type: object
+      additionalProperties: false
+      required: [events, count]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEventResponse'
+        count:
+          type: integer
+          minimum: 0

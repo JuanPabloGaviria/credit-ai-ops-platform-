@@ -1,0 +1,9 @@
+from typing import Any
+
+class StandardScaler:
+    mean_: list[float]
+    scale_: list[float]
+
+    def __init__(self) -> None: ...
+    def fit_transform(self, x: Any) -> Any: ...
+    def transform(self, x: Any) -> Any: ...

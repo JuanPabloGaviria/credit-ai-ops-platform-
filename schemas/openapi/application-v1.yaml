@@ -1,0 +1,215 @@
+openapi: 3.1.0
+info:
+  title: application API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service health status
+  /ready:
+    get:
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service readiness status
+  /metrics:
+    get:
+      summary: Metrics endpoint
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics payload
+  /v1/applications/status:
+    get:
+      summary: application operational status
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        "200":
+          description: Service-specific status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatusResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /v1/applications/intake:
+    post:
+      summary: Accept a credit application and enqueue the async processing chain
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationInput'
+            examples:
+              standard:
+                value:
+                  application_id: app-000123
+                  applicant_id: applicant-0099
+                  monthly_income: 8500
+                  monthly_debt: 2100
+                  requested_amount: 15000
+                  credit_history_months: 84
+                  existing_defaults: 0
+      responses:
+        "200":
+          description: Application accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationIntakeResponse'
+              examples:
+                accepted:
+                  value:
+                    status: accepted
+                    application_id: app-000123
+                    event_id: evt-9c5b8d11
+                    queued_events: 1
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKeyOptional:
+      in: header
+      name: x-idempotency-key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+  responses:
+    InvalidRequest:
+      description: Invalid request payload or idempotency header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Token is valid but missing required audience or scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ServiceStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [service, status]
+      properties:
+        service:
+          type: string
+          const: application
+        status:
+          type: string
+          const: operational
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error_code, message, service, operation, trace_id, timestamp]
+      properties:
+        error_code:
+          type: string
+          minLength: 3
+        message:
+          type: string
+          minLength: 1
+        service:
+          type: string
+          minLength: 1
+        operation:
+          type: string
+          minLength: 1
+        trace_id:
+          type: string
+          minLength: 8
+        cause:
+          type:
+            - string
+            - "null"
+        hint:
+          type:
+            - string
+            - "null"
+        timestamp:
+          type: string
+          format: date-time
+    ApplicationInput:
+      type: object
+      additionalProperties: false
+      required:
+        - application_id
+        - applicant_id
+        - monthly_income
+        - monthly_debt
+        - requested_amount
+        - credit_history_months
+        - existing_defaults
+      properties:
+        application_id:
+          type: string
+          minLength: 8
+        applicant_id:
+          type: string
+          minLength: 8
+        monthly_income:
+          type: number
+          exclusiveMinimum: 0
+        monthly_debt:
+          type: number
+          minimum: 0
+        requested_amount:
+          type: number
+          exclusiveMinimum: 0
+        credit_history_months:
+          type: integer
+          minimum: 0
+        existing_defaults:
+          type: integer
+          minimum: 0
+    ApplicationIntakeResponse:
+      type: object
+      additionalProperties: false
+      required: [status, application_id, event_id, queued_events]
+      properties:
+        status:
+          type: string
+          const: accepted
+        application_id:
+          type: string
+          minLength: 8
+        event_id:
+          type: string
+          minLength: 8
+        queued_events:
+          type: integer
+          minimum: 1

@@ -1,0 +1,126 @@
+name: build-and-sign
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-sign:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api-gateway
+            dockerfile: services/api-gateway/Dockerfile
+          - service: application
+            dockerfile: services/application/Dockerfile
+          - service: feature
+            dockerfile: services/feature/Dockerfile
+          - service: scoring
+            dockerfile: services/scoring/Dockerfile
+          - service: decision
+            dockerfile: services/decision/Dockerfile
+          - service: collab-assistant
+            dockerfile: services/collab-assistant/Dockerfile
+          - service: mlops
+            dockerfile: services/mlops/Dockerfile
+          - service: observability-audit
+            dockerfile: services/observability-audit/Dockerfile
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Login GHCR
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+          format: table
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: 1
+      - name: Install cosign
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      - name: Sign image digest with keyless OIDC
+        run: |
+          cosign sign --yes \
+            ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+      - name: Verify image signature
+        run: |
+          cosign verify \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/build-sign.yml@.*" \
+            ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Write digest reference
+        run: |
+          mkdir -p build
+          printf '%s=%s\n' \
+            "${{ matrix.service }}" \
+            "ghcr.io/${{ github.repository }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}" \
+            > "build/${{ matrix.service }}.digest"
+      - name: Upload per-service digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digest-${{ matrix.service }}
+          path: build/${{ matrix.service }}.digest
+
+  consolidate-digests:
+    runs-on: ubuntu-latest
+    needs: build-sign
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download service digest artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: build/digests
+      - name: Consolidate digest manifest
+        run: |
+          mkdir -p build
+          cat build/digests/*.digest | sort > build/image-digests.txt
+          cat build/image-digests.txt
+      - name: Render Terraform image tfvars
+        run: |
+          python3 scripts/ci/render_image_tfvars.py \
+            --manifest build/image-digests.txt \
+            --output build/container-apps.auto.tfvars.json
+      - name: Upload consolidated digest manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digests
+          path: build/image-digests.txt
+      - name: Upload Terraform image tfvars
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: container-apps-image-tfvars
+          path: build/container-apps.auto.tfvars.json

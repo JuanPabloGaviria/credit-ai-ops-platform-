@@ -1,0 +1,24 @@
+{
+  "realm": "credit-ai-ops",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "api-gateway",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+  "roles": {
+    "realm": [
+      {"name": "credit_analyst"},
+      {"name": "credit_manager"},
+      {"name": "ml_engineer"}
+    ]
+  }
+}

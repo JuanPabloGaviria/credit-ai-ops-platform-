@@ -1,0 +1,573 @@
+openapi: 3.1.0
+info:
+  title: mlops API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service health status
+  /ready:
+    get:
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service readiness status
+  /metrics:
+    get:
+      summary: Metrics endpoint
+      security: []
+      responses:
+        "200":
+          description: Prometheus metrics payload
+  /v1/mlops/status:
+    get:
+      summary: MLOps service status
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      responses:
+        "200":
+          description: Service-specific status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatusResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /v1/mlops/train:
+    post:
+      summary: Train a deterministic logistic-regression model package
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainRunRequest'
+      responses:
+        "200":
+          description: Training run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainRunResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+  /v1/mlops/evaluate:
+    post:
+      summary: Evaluate a deterministic training run against policy thresholds
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluateRunRequest'
+      responses:
+        "200":
+          description: Evaluation recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateRunResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+  /v1/mlops/register:
+    post:
+      summary: Register an immutable candidate model after training and evaluation policy checks
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterModelRequest'
+      responses:
+        "200":
+          description: Model candidate registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterModelResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+  /v1/mlops/promote:
+    post:
+      summary: Promote a registered model into a controlled stage with approval lineage
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoteModelRequest'
+      responses:
+        "200":
+          description: Model promoted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoteModelResponse'
+        "400":
+          $ref: '#/components/responses/InvalidRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+  /v1/mlops/runs/{run_id}:
+    get:
+      summary: Fetch an immutable training run record
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+            minLength: 8
+      responses:
+        "200":
+          description: Training run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MLOpsRunResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKeyOptional:
+      in: header
+      name: x-idempotency-key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+    IdempotencyKeyRequired:
+      in: header
+      name: x-idempotency-key
+      required: true
+      schema:
+        type: string
+        minLength: 8
+  responses:
+    InvalidRequest:
+      description: Invalid request payload or idempotency header
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Token is valid but missing required audience or scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Requested training run, evaluation, or registry candidate was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: Immutable MLOps record already exists or policy gate prevents the transition
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ServiceStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [service, status]
+      properties:
+        service:
+          type: string
+          const: mlops
+        status:
+          type: string
+          const: operational
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error_code, message, service, operation, trace_id, timestamp]
+      properties:
+        error_code:
+          type: string
+          minLength: 3
+        message:
+          type: string
+          minLength: 1
+        service:
+          type: string
+          minLength: 1
+        operation:
+          type: string
+          minLength: 1
+        trace_id:
+          type: string
+          minLength: 8
+        cause:
+          type:
+            - string
+            - "null"
+        hint:
+          type:
+            - string
+            - "null"
+        timestamp:
+          type: string
+          format: date-time
+    TrainingMetrics:
+      type: object
+      additionalProperties: false
+      required: [auc, precision_at_50, recall_at_50, calibration_error]
+      properties:
+        auc:
+          type: number
+          minimum: 0
+          maximum: 1
+        precision_at_50:
+          type: number
+          minimum: 0
+          maximum: 1
+        recall_at_50:
+          type: number
+          minimum: 0
+          maximum: 1
+        calibration_error:
+          type: number
+          minimum: 0
+          maximum: 1
+    TrainRunRequest:
+      type: object
+      additionalProperties: false
+      required: [model_name, dataset_reference, random_seed]
+      properties:
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        dataset_reference:
+          type: string
+          minLength: 3
+        random_seed:
+          type: integer
+          minimum: 0
+        algorithm:
+          type: string
+          pattern: "^sklearn_logistic_regression$"
+          default: sklearn_logistic_regression
+        feature_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+          default: credit-feature-spec/v1
+        training_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+          default: credit-training-spec/v1
+    TrainRunResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - run_id
+        - model_name
+        - dataset_hash
+        - random_seed
+        - algorithm
+        - feature_spec_ref
+        - training_spec_ref
+        - artifact_uri
+        - artifact_digest
+        - metrics
+      properties:
+        run_id:
+          type: string
+          minLength: 8
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        dataset_hash:
+          type: string
+          minLength: 16
+        random_seed:
+          type: integer
+          minimum: 0
+        algorithm:
+          type: string
+          pattern: "^sklearn_logistic_regression$"
+        feature_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+        training_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+        artifact_uri:
+          type: string
+          minLength: 3
+        artifact_digest:
+          type: string
+          minLength: 16
+        metrics:
+          $ref: '#/components/schemas/TrainingMetrics'
+    EvaluateRunRequest:
+      type: object
+      additionalProperties: false
+      required: [run_id]
+      properties:
+        run_id:
+          type: string
+          minLength: 8
+    EvaluateRunResponse:
+      type: object
+      additionalProperties: false
+      required: [evaluation_id, run_id, metrics, passed_policy, policy_failures]
+      properties:
+        evaluation_id:
+          type: string
+          minLength: 8
+        run_id:
+          type: string
+          minLength: 8
+        metrics:
+          $ref: '#/components/schemas/TrainingMetrics'
+        passed_policy:
+          type: boolean
+        policy_failures:
+          type: array
+          items:
+            type: string
+    RegisterModelRequest:
+      type: object
+      additionalProperties: false
+      required: [model_name, model_version, run_id, evaluation_id]
+      properties:
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        model_version:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        run_id:
+          type: string
+          minLength: 8
+        evaluation_id:
+          type: string
+          minLength: 8
+        feature_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+          default: credit-feature-spec/v1
+        training_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+          default: credit-training-spec/v1
+    ModelMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        - model_name
+        - model_version
+        - dataset_hash
+        - random_seed
+        - generated_at
+        - environment_fingerprint
+      properties:
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        model_version:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        dataset_hash:
+          type: string
+          minLength: 16
+        random_seed:
+          type: integer
+          minimum: 0
+        generated_at:
+          type: string
+          format: date-time
+        environment_fingerprint:
+          type: string
+          minLength: 3
+    RegisterModelResponse:
+      type: object
+      additionalProperties: false
+      required: [model_name, model_version, status, model_card_uri, metadata]
+      properties:
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        model_version:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        status:
+          type: string
+          enum: [candidate, promoted]
+        model_card_uri:
+          type: string
+          minLength: 3
+        metadata:
+          $ref: '#/components/schemas/ModelMetadata'
+    PromoteModelRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - model_name
+        - model_version
+        - stage
+        - approved_by
+        - approval_ticket
+        - risk_signoff_ref
+      properties:
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        model_version:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        stage:
+          type: string
+          enum: [staging, production]
+        approved_by:
+          type: string
+          minLength: 3
+          maxLength: 128
+        approval_ticket:
+          type: string
+          minLength: 3
+          maxLength: 128
+        risk_signoff_ref:
+          type: string
+          minLength: 3
+          maxLength: 128
+    PromoteModelResponse:
+      type: object
+      additionalProperties: false
+      required: [model_name, model_version, stage, promoted_at, event_id]
+      properties:
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        model_version:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        stage:
+          type: string
+          enum: [staging, production]
+        promoted_at:
+          type: string
+          format: date-time
+        event_id:
+          type: string
+          minLength: 8
+    MLOpsRunResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - run_id
+        - model_name
+        - dataset_hash
+        - random_seed
+        - algorithm
+        - feature_spec_ref
+        - training_spec_ref
+        - artifact_uri
+        - artifact_digest
+        - status
+        - metrics
+        - created_at
+        - completed_at
+      properties:
+        run_id:
+          type: string
+          minLength: 8
+        model_name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,63}$"
+        dataset_hash:
+          type: string
+          minLength: 16
+        random_seed:
+          type: integer
+          minimum: 0
+        algorithm:
+          type: string
+          pattern: "^sklearn_logistic_regression$"
+        feature_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+        training_spec_ref:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$"
+        artifact_uri:
+          type: string
+          minLength: 3
+        artifact_digest:
+          type: string
+          minLength: 16
+        status:
+          type: string
+          enum: [succeeded, failed]
+        metrics:
+          $ref: '#/components/schemas/TrainingMetrics'
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
