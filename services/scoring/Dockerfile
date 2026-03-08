@@ -1,4 +1,4 @@
-ARG PYTHON_BASE_IMAGE=python:3.11.11-slim-bookworm@sha256:081075da77b2b55c23c088251026fb69a7b2bf92471e491ff5fd75c192fd38e5
+ARG PYTHON_BASE_IMAGE=python:3.11.14-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 FROM ${PYTHON_BASE_IMAGE} AS builder
 
@@ -12,8 +12,9 @@ WORKDIR /app
 
 RUN python -m venv /opt/venv
 COPY requirements/lock/base.lock /app/requirements/base.lock
-RUN pip install --upgrade pip==25.0.1 setuptools==80.9.0 wheel==0.45.1 \
-    && pip install --require-hashes -r /app/requirements/base.lock
+RUN pip install --upgrade pip==25.0.1 setuptools==80.9.0 wheel==0.46.2 \
+    && pip install --require-hashes -r /app/requirements/base.lock \
+    && python -m pip uninstall -y wheel setuptools pip
 
 FROM ${PYTHON_BASE_IMAGE} AS runtime
 
@@ -31,6 +32,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN groupadd --system app && useradd --system --uid 10001 --gid app --create-home app
+RUN python -m pip uninstall -y wheel setuptools pip
 COPY --from=builder --chown=app:app /opt/venv /opt/venv
 COPY --chown=app:app packages /app/packages
 COPY --chown=app:app scripts/docker /app/scripts/docker

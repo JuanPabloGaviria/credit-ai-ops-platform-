@@ -31,7 +31,7 @@ Expected output:
 - technical executive report in `build/recruiter-demo-report.md`
 - reproducible MLOps evidence in `build/recruiter-ml-evidence.json`
 - reviewer scorecard in `build/reviewer-scorecard.md`
-- cybersecurity, integration, and async pipeline baseline validation
+- cybersecurity, relay-only integration validation, and real HTTP gateway end-to-end validation
 
 Final pre-share command:
 
@@ -95,7 +95,7 @@ sequenceDiagram
 ## Executive Review Questions
 | Business question | Verifiable evidence |
 |---|---|
-| Is there end-to-end operational impact? | Full chain in `tests/integration/test_async_credit_chain.py` |
+| Is there end-to-end operational impact? | Relay-only async chain in `tests/integration/test_async_credit_chain.py` plus real HTTP path in `tests/e2e/test_gateway_http_stack.py` |
 | Is operational risk controlled? | Typed errors, trace IDs, and runbooks in `docs/runbooks/*` |
 | Is the platform audit-ready? | Redacted audit events and trace queries in `services/observability-audit` |
 | Can failures be recovered safely? | Timeouts, retries, circuit-breaker, bulkhead, DLQ/replay |

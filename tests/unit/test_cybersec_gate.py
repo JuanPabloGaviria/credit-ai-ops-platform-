@@ -123,7 +123,14 @@ def test_cybersec_gate_uses_branch_protection_token(
         assert token == expected_secret
         return {
             "required_status_checks": {
-                "contexts": ["quality", "container-policy", "secret-scan", "sbom"]
+                "contexts": [
+                    "quality",
+                    "integration-e2e",
+                    "supply-chain-verify",
+                    "container-policy",
+                    "secret-scan",
+                    "sbom",
+                ]
             },
             "required_pull_request_reviews": {
                 "required_approving_review_count": 1,
@@ -211,3 +218,24 @@ def test_check_terraform_pinning_requires_model_signing_controls() -> None:
     assert any('check "model_signing_configuration"' in failure for failure in failures)
     assert any("MODEL_SIGNING_PRIVATE_KEY_PEM" in failure for failure in failures)
     assert any("MODEL_SIGNING_PUBLIC_KEY_PEM" in failure for failure in failures)
+
+
+def test_check_build_sign_workflow_requires_push_main_trigger() -> None:
+    module = _load_module()
+    check_build_sign_workflow = module._check_build_sign_workflow
+    root = Path(__file__).resolve().parents[2]
+
+    build_sign_text = (
+        (root / ".github" / "workflows" / "build-sign.yml")
+        .read_text(encoding="utf-8")
+        .replace('  push:\n    branches: ["main"]\n', "")
+    )
+    build_sign_workflow = module._load_yaml(root / ".github" / "workflows" / "build-sign.yml")
+    build_sign_workflow[True] = {
+        "workflow_dispatch": None,
+    }
+
+    failures: list[str] = []
+    check_build_sign_workflow(build_sign_workflow, build_sign_text, failures)
+
+    assert "build-sign workflow must trigger on pushes to main" in failures

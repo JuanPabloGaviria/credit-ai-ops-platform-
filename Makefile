@@ -4,17 +4,17 @@ PYTHON := python3
 .PHONY: lint type-check pyright-check docs-audience-lint unit-tests coverage-gate pre-commit-gate security-scan secret-scan contract-lint adr-gate cybersec-posture bank-cybersec-gate container-policy sbom test all relay recruiter-demo release-ready lock-dependencies
 
 lint:
-	ruff check .
+	$(PYTHON) -m ruff check .
 
 type-check:
-	mypy .
+	$(PYTHON) -m mypy .
 
 pyright-check:
-	python -m pyright
+	$(PYTHON) -m pyright
 
 unit-tests:
 	@mkdir -p build
-	pytest -m "unit or contract" --cov=packages --cov=services --cov-report=term --cov-report=json:build/coverage.unit.json -vv
+	$(PYTHON) -m pytest -m "unit or contract" --cov=packages --cov=services --cov-report=term --cov-report=json:build/coverage.unit.json -vv
 
 docs-audience-lint:
 	$(PYTHON) scripts/ci/docs_audience_lint.py

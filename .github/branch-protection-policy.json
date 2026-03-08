@@ -4,6 +4,8 @@
       "name": "main",
       "required_status_checks": [
         "quality",
+        "integration-e2e",
+        "supply-chain-verify",
         "container-policy",
         "secret-scan",
         "sbom"
