@@ -1,113 +1,54 @@
 # credit-ai-ops-platform
 
-Plataforma de operaciones de IA para riesgo crediticio, diseñada como si fuera a ser evaluada por un banco grande, un líder de tecnología y un reclutador no técnico al mismo tiempo.
+AI credit decisioning platform for regulated environments, built around the harder parts of production: model governance, decision traceability, recovery under asynchronous failure, and security controls that exist in code instead of presentation decks.
 
-**Idioma:** Español (principal) · [English version](/Users/jpgaviria/Development/jpgaviria/credit-ai-ops-platform/README.en.md)
+**Language:** English (primary) | [Resumen en Espanol](README.es.md)
 
-## Qué Es Este Repositorio
-Este repositorio muestra una plataforma completa para evaluar solicitudes de crédito con IA y controles de banca regulada.
+## Abstract
 
-No es solo un modelo.
+`credit-ai-ops-platform` treats credit decisioning as a governed systems problem rather than a model-serving demo.
 
-No es solo una API.
+The system accepts an application, materializes risk features, resolves the promoted model, produces a score, applies a credit policy, and records the entire path as reconstructable operational evidence. The surrounding platform is part of the product: promotion controls, signed artifacts, audit trails, replay paths, contract publication, and reproducible reviewer gates are not side notes here. They are the reason the repository is credible.
 
-No es solo una demo bonita.
+## System Thesis
 
-El objetivo es demostrar que un sistema de IA para crédito puede:
+The central claim of this repository is narrow and testable:
 
-- recibir una solicitud
-- transformar datos en variables útiles
-- calcular un score de riesgo
-- tomar una decisión explicable
-- registrar auditoría y trazabilidad
-- operar con controles reales de seguridad, resiliencia y gobierno MLOps
+> A credit decisioning platform can move quickly without becoming operationally unverifiable, provided that model lifecycle, runtime policy, and failure recovery are treated as first-class system boundaries.
 
-## Por Qué Importa
-En banca, una solución técnica no se evalúa solo por “si funciona”.
+That claim is exercised through two real runtime paths:
 
-También se evalúa por preguntas como estas:
+- a synchronous gateway path for immediate credit evaluation
+- an asynchronous event chain for durable processing, audit propagation, replay, and operational recovery
 
-- ¿Se puede confiar en la decisión?
-- ¿Se puede reconstruir lo que pasó meses después?
-- ¿La plataforma resiste fallas sin corromper datos?
-- ¿La seguridad está en código o solo en presentaciones?
-- ¿El modelo que sirve producción es exactamente el que fue aprobado?
-- ¿Un auditor, un reclutador y un arquitecto entienden lo mismo al leer el repositorio?
+## At A Glance
 
-Este proyecto fue endurecido precisamente alrededor de esas preguntas.
+| Dimension | Current position |
+| --- | --- |
+| Primary workload | Credit application intake, feature materialization, scoring, decisioning, audit, and MLOps promotion |
+| Runtime shape | Multi-service Python platform with synchronous HTTP edges and asynchronous event propagation |
+| Persistence posture | Historical persistence where reconstruction matters, append-only patterns where auditability matters |
+| Resilience posture | Timeout, retry, circuit breaker, bulkhead, outbox relay, DLQ, replay, idempotency |
+| Security posture | JWT/JWKS auth, Azure-oriented secret handling, supply-chain gates, signed model artifacts |
+| Reviewer proof path | `make recruiter-demo` then `make release-ready` |
 
-## Lectura Rápida Para Cada Perfil
-### Reclutamiento / HR
-La lectura más simple es esta:
+## Runtime Topology
 
-- existe un flujo completo de crédito, no solo un notebook
-- existe una separación clara entre servicios, datos, auditoría y gobierno del modelo
-- existe validación automática, no promesas
-- existe evidencia reproducible, no screenshots manuales
-- existe documentación pensada para negocio y para ingeniería
-
-### Liderazgo No Técnico
-La lectura de negocio es esta:
-
-- una solicitud entra por un gateway
-- el sistema calcula variables de riesgo
-- el motor genera un score
-- la política decide aprobar, revisar o rechazar
-- cada paso queda rastreado
-- el modelo promovido a producción tiene trazabilidad, firma y evidencia
-
-### Revisión Técnica
-La lectura técnica es esta:
-
-- arquitectura multi-servicio con contratos explícitos
-- persistencia append-only donde importa el historial
-- idempotencia, outbox, DLQ, replay y circuit breaker
-- autenticación JWT/JWKS y llamadas internas autenticadas
-- despliegue Azure endurecido con identidad administrada y Key Vault
-- artefactos de modelo firmados y verificados antes de servir
-- pruebas reales de integración asíncrona y flujo HTTP end-to-end
-
-## Qué Hace El Sistema, En Lenguaje Simple
-Una persona solicita crédito.
-
-La plataforma recibe esa solicitud y calcula datos útiles para medir riesgo: nivel de endeudamiento, historial, defaults previos y relación entre ingreso y monto solicitado.
-
-Con esos datos, la plataforma genera un score.
-
-Después, una política de negocio convierte ese score en una decisión: aprobar, revisar manualmente o rechazar.
-
-Al mismo tiempo, cada evento relevante se guarda para auditoría.
-
-En paralelo, el ciclo MLOps permite entrenar, evaluar, registrar y promover modelos nuevos de forma reproducible y controlada.
-
-## Flujo De Negocio
 ```mermaid
 flowchart LR
-  A["Solicitud de crédito"] --> B["Recepción en api-gateway"]
-  B --> C["Materialización de features"]
-  C --> D["Scoring de riesgo"]
-  D --> E["Decisión explicable"]
-  E --> F["Resumen colaborativo"]
-  B --> G["Auditoría y trazabilidad"]
-  C --> G
-  D --> G
-  E --> G
-```
+  Channel["Credit application channels"] --> Gateway["api-gateway"]
+  Gateway --> Application["application-service"]
+  Application --> Feature["feature-service"]
+  Feature --> Scoring["scoring-service"]
+  Scoring --> Decision["decision-service"]
+  Decision --> Assistant["collab-assistant-service"]
 
-## Flujo Técnico Del Sistema
-```mermaid
-flowchart LR
-  Channel["Canales de entrada"] --> Gateway["api-gateway"]
-  Gateway --> Feature["feature-service"]
-  Gateway --> Scoring["scoring-service"]
-  Gateway --> Decision["decision-service"]
-
-  Application["application-service"] --> Bus["RabbitMQ"]
+  Application --> Bus["RabbitMQ"]
   Feature --> Bus
   Scoring --> Bus
   Decision --> Bus
-  Assistant["collab-assistant"] --> Bus
-  Bus --> Audit["observability-audit"]
+  Assistant --> Bus
+  Bus --> Audit["observability-audit-service"]
 
   Application --> Postgres[(PostgreSQL)]
   Feature --> Postgres
@@ -116,273 +57,180 @@ flowchart LR
   Assistant --> Postgres
   Audit --> Postgres
 
-  MLOps["mlops-service"] --> Postgres
-  MLOps --> Artifacts["Artifacts + model cards + firmas"]
+  MLOps["mlops-service"] --> Registry["promoted model registry"]
+  MLOps --> Artifacts["signed artifacts + model cards"]
+  Scoring --> Registry
   Scoring --> Artifacts
+
+  Identity["OIDC / JWKS identity"] --> Gateway
+  Identity --> Application
+  Identity --> Feature
+  Identity --> Scoring
+  Identity --> Decision
 ```
 
-## Cadena De Decisión Paso A Paso
-### 1. Entrada
-El endpoint principal síncrono es `POST /v1/gateway/credit-evaluate`.
+## Decision Path
 
-Este endpoint no “finge” el resto del sistema dentro del mismo proceso. Llama a los servicios reales de features, scoring y decisión.
+```mermaid
+sequenceDiagram
+  participant U as Applicant
+  participant G as API Gateway
+  participant F as Feature Service
+  participant S as Scoring Service
+  participant D as Decision Service
+  participant A as Audit Service
+  participant M as Model Registry
 
-### 2. Features
-`feature-service` transforma la solicitud en un vector de features y registra historial.
-
-### 3. Scoring
-`scoring-service` resuelve el modelo promovido en el registry, verifica digest y firma, y calcula el score desde el artefacto aprobado.
-
-### 4. Decisión
-`decision-service` aplica la política de crédito y produce una salida explicable.
-
-### 5. Auditoría
-`observability-audit` guarda eventos redactados, trazables por `trace_id`, `correlation_id` y `causation_id`.
-
-### 6. Flujo Asíncrono
-Existe además una cadena asíncrona completa para intake y procesamiento por eventos:
-
-- `application -> feature -> scoring -> decision -> collab-assistant`
-
-Ese flujo usa outbox relay, colas, replay y persistencia histórica.
-
-## Qué Hace Que Este Repositorio Sea Fuerte
-### 1. Honestidad Arquitectónica
-La arquitectura documentada coincide con la arquitectura que realmente se ejecuta.
-
-Eso parece obvio, pero no lo es. Muchas demos de IA “simulan” microservicios mientras resuelven todo en memoria. Aquí no.
-
-### 2. Persistencia Con Historial
-Las partes importantes no se reescriben silenciosamente. El historial de features, score, decisiones, promociones y auditoría se conserva para reconstrucción y revisión.
-
-### 3. Resiliencia Operativa
-Los bordes de integración tienen:
-
-- timeouts
-- retries acotados
-- circuit breaker con recuperación
-- bulkhead
-- outbox claim/lease
-- DLQ y replay
-- idempotencia para escrituras
-
-### 4. Seguridad En Código
-La seguridad importante no vive solo en documentos:
-
-- JWT/JWKS para autenticación
-- secretos en Azure vía identidad administrada y Key Vault
-- imágenes con digest pinning
-- escaneo de secretos
-- SBOM
-- validaciones de postura
-- verificación de contratos y políticas desde CI
-
-### 5. Gobierno Real Del Modelo
-El modelo en serving tiene:
-
-- versión explícita
-- stage explícito
-- artefacto inmutable
-- digest verificable
-- firma verificable
-- metadata de reproducibilidad
-- model card
-- aprobación de promoción con referencias de control
-
-## Qué Se Endureció Durante El Desarrollo
-Este repositorio no nació en estado final. El valor está también en el proceso de endurecimiento.
-
-Las principales iteraciones fueron:
-
-- eliminación de rutas falsas o “arquitectura teatro”
-- corrección de autenticación incompleta entre servicios
-- rediseño de idempotencia y outbox para evitar duplicados y estados colgados
-- corrección de circuit breaker para recuperación real
-- paso a persistencia append-only en dominios críticos
-- paso de scoring local fijo a serving desde artefacto promovido
-- introducción de firma y verificación de paquetes de modelo
-- endurecimiento del despliegue Azure con identidad administrada y secretos referenciados
-- propagación real de trazas y contexto observacional
-- alineación estricta entre contratos, código y documentación
-- limpieza de evidencia para evitar reportes “PASS” falsos o reutilizables
-
-## Evidencia Que Ya Existe
-### Validación Asíncrona Real
-Archivo clave:
-
-- [tests/integration/test_async_credit_chain.py](/Users/jpgaviria/Development/jpgaviria/credit-ai-ops-platform/tests/integration/test_async_credit_chain.py)
-
-Qué demuestra:
-
-- intake real
-- relay-only publication
-- consumo por colas
-- persistencia histórica
-- auditoría
-
-### Validación HTTP End-To-End Real
-Archivo clave:
-
-- [tests/e2e/test_gateway_http_stack.py](/Users/jpgaviria/Development/jpgaviria/credit-ai-ops-platform/tests/e2e/test_gateway_http_stack.py)
-
-Qué demuestra:
-
-- procesos reales levantados por socket local
-- gateway llamando servicios reales
-- modelo promovido en serving
-- replay idempotente
-- escritura única en historial
-
-### Evidencia MLOps
-Artefactos clave:
-
-- `build/recruiter-ml-evidence.json`
-- `build/recruiter-mlops/artifacts/*.json`
-- `build/recruiter-mlops/model_cards/*.json`
-
-Qué demuestran:
-
-- entrenamiento determinístico
-- metadata de reproducibilidad
-- artefacto firmado
-- card del modelo
-
-### Scorecard De Revisión
-Artefactos clave:
-
-- `build/reviewer-scorecard.md`
-- `build/reviewer-scorecard.json`
-
-Qué demuestran:
-
-- validaciones ligadas al commit actual
-- receipts con timestamp
-- vínculo opcional a corrida CI
-- mapa entre control y evidencia
-
-## Demostración En Un Comando
-```bash
-make recruiter-demo
+  U->>G: submit credit application
+  G->>F: request feature materialization
+  F-->>G: risk feature vector
+  G->>S: request score using promoted model
+  S->>M: resolve approved model package
+  M-->>S: immutable artifact metadata
+  S-->>G: score + score evidence
+  G->>D: evaluate policy
+  D-->>G: approve / review / reject + rationale
+  G-->>U: explainable credit decision
+  G-->>A: traceable audit event stream
+  F-->>A: feature materialization record
+  S-->>A: scoring record
+  D-->>A: decision record
 ```
 
-Salida esperada:
+## MLOps Control Loop
 
-- `build/recruiter-demo-report.md`
-- `build/recruiter-ml-evidence.json`
-- `build/reviewer-scorecard.md`
-- `build/reviewer-scorecard.json`
-
-Ese comando hace lo siguiente:
-
-1. levanta Postgres y RabbitMQ
-2. espera readiness real
-3. aplica migraciones
-4. genera evidencia MLOps
-5. ejecuta la compuerta de ciberseguridad
-6. ejecuta la prueba de integración asíncrona real
-7. ejecuta la prueba HTTP end-to-end real
-8. genera el reporte final y el scorecard
-
-Compuerta final antes de compartir:
-
-```bash
-make release-ready
+```mermaid
+flowchart LR
+  Train["train"] --> Evaluate["evaluate"]
+  Evaluate --> Register["register"]
+  Register --> Promote["promote"]
+  Promote --> Serving["scoring-service"]
+  Promote --> Evidence["model card + signed artifact + reproducibility metadata"]
+  Serving --> Audit["decision and scoring audit trail"]
 ```
 
-## Contratos y APIs
-### Endpoints v1 Implementados
+## What Is Actually Real
+
+- The synchronous gateway path is not a facade over in-process function calls. It calls the real feature, scoring, and decision services.
+- The asynchronous chain is not decorative documentation. The relay-only path is exercised through integration tests and recruiter-demo receipts.
+- The scoring path does not claim a magical live model registry. It resolves a promoted model package with verifiable metadata and signature checks.
+- Auditability is not reduced to log lines. The system keeps reconstructable events tied to trace and correlation identifiers.
+- The repo does not sell static security promises. It carries concrete gates for secret scanning, dependency posture, SBOM, and container policy.
+
+## Operating Invariants
+
+### Credit decision invariants
+
+- Every decision must be explainable in terms of features, score, and policy output.
+- The scoring path must resolve the approved model package, not a mutable local default.
+- A replay must not silently duplicate durable records or corrupt business history.
+
+### Platform invariants
+
+- External calls run with bounded time.
+- Integration failure must degrade explicitly, not disappear.
+- Asynchronous publication must happen through relay-controlled persistence, not direct fire-and-forget side effects.
+- Operational evidence must survive the happy path.
+
+### Governance invariants
+
+- Model lifecycle transitions are explicit: train, evaluate, register, promote.
+- Artifact identity is stable: version, digest, signature, and metadata travel together.
+- Reviewer evidence must be reproducible from commands, not screenshots.
+
+## Public Surface
+
+### Synchronous evaluation
+
 - `POST /v1/gateway/credit-evaluate`
+
+### Domain services
+
 - `POST /v1/applications/intake`
 - `POST /v1/features/materialize`
 - `POST /v1/scores/predict`
 - `POST /v1/decisions/evaluate`
 - `POST /v1/assistant/summarize`
 - `GET /v1/assistant/summaries/{application_id}`
+
+### Model lifecycle
+
 - `POST /v1/mlops/train`
 - `POST /v1/mlops/evaluate`
 - `POST /v1/mlops/register`
 - `POST /v1/mlops/promote`
 - `GET /v1/mlops/runs/{run_id}`
+
+### Audit surface
+
 - `POST /v1/audit/events`
 - `GET /v1/audit/events`
 - `GET /v1/audit/events/{event_id}`
 - `GET /v1/audit/traces/{trace_id}`
 
-### Contratos Canónicos
+Canonical contracts:
+
 - REST: `schemas/openapi/*.yaml`
-- Eventos: `schemas/asyncapi/credit-events-v1.yaml`
-- Schemas base: `schemas/jsonschema/*.json`
+- events: `schemas/asyncapi/credit-events-v1.yaml`
+- data contracts: `schemas/jsonschema/*.json`
 
-### Autenticación
-- todos los endpoints `/v1/*` requieren `Authorization: Bearer <token>`
-- `health`, `ready` y `metrics` quedan abiertos para operación local y probes
+## Evidence Surface
 
-## Seguridad, Plataforma y Supply Chain
-### En Pre-Merge
-Las ramas protegidas exigen:
+| Claim | Primary proof |
+| --- | --- |
+| The async credit chain is real | `tests/integration/test_async_credit_chain.py` |
+| The gateway path reaches real services | `tests/e2e/test_gateway_http_stack.py` |
+| Model lifecycle is reproducible | `docs/runbooks/mlops-lifecycle.md` and `build/recruiter-ml-evidence.json` |
+| Security posture is enforced, not narrated | `make bank-cybersec-gate` |
+| Documentation maps to fresh runtime evidence | `make recruiter-demo` and `build/reviewer-scorecard.md` |
 
-- `quality`
-- `integration-e2e`
-- `supply-chain-verify`
-- `container-policy`
-- `secret-scan`
-- `sbom`
+## Reviewer Path
 
-### En Post-Merge Sobre `main`
-La plataforma ejecuta:
+```bash
+make recruiter-demo
+make release-ready
+```
 
-- build de imágenes
-- push por digest
-- escaneo de vulnerabilidades
-- firma con Cosign
-- verificación de firma
-- attestations de provenance
-- manifest consolidado para Terraform
+What those commands should leave behind:
 
-### En Infraestructura Azure
-La ruta de despliegue contempla:
+- `build/recruiter-demo-report.md`
+- `build/recruiter-ml-evidence.json`
+- `build/reviewer-scorecard.md`
+- fresh receipts for gateway, async-chain, cybersecurity, and MLOps evidence
 
-- Azure Container Apps
-- identidades administradas
-- secretos vía Key Vault
-- referencias por digest
-- telemetría gestionada
-- restricciones de producción en Terraform
+## Repository Guide
 
-## Observabilidad y Auditoría
-La observabilidad no se limita a logs.
+### Core documents
 
-Incluye:
+- [Executive brief](docs/executive/brief.en.md)
+- [Role-alignment matrix](docs/executive/role-alignment.en.md)
+- [Async flow runbook](docs/runbooks/async-flow.md)
+- [MLOps lifecycle runbook](docs/runbooks/mlops-lifecycle.md)
+- [Cybersecurity runbook](docs/runbooks/cybersecurity.md)
+- [Audit reporting runbook](docs/runbooks/audit-reporting.md)
 
-- logs estructurados
-- métricas por ruta normalizada
-- contexto de trazas propagado
-- trazabilidad por `trace_id`, `correlation_id` y `causation_id`
-- auditoría con redacción de PII
+### Architecture references
 
-## MLOps En Lenguaje Simple
-El proceso MLOps se puede entender así:
+- [Service boundaries ADR](docs/adr/0001-service-boundaries.md)
+- [Event schema versioning ADR](docs/adr/0002-event-schema-versioning.md)
+- [Retry and idempotency ADR](docs/adr/0003-retry-idempotency-strategy.md)
+- [Model promotion ADR](docs/adr/0004-model-promotion-strategy.md)
+- [Azure deployment ADR](docs/adr/0005-azure-deployment-decisions.md)
 
-1. se entrena un modelo
-2. se evalúa
-3. se decide si pasa la política
-4. se registra con metadata
-5. se firma el artefacto
-6. se promueve a un stage
-7. el servicio de scoring solo sirve lo que fue promovido y verificado
+### Executive and reviewer support
 
-## SLOs y Honestidad Operativa
-Objetivos v1:
+- [Executive brief in Spanish](docs/executive/brief.md)
+- [Role-alignment matrix in Spanish](docs/executive/role-alignment.md)
+- [Spanish README companion](README.es.md)
 
-- p95 gateway `<= 300ms`
-- p95 procesamiento asíncrono `<= 2s`
-- tasa 5xx `< 1%`
+## Local Setup
 
-Estos números son objetivos, no slogans permanentes.
+Pinned runtime for v1:
 
-La evidencia vigente debe regenerarse antes de citar resultados a terceros. Por eso el repositorio privilegia corridas reproducibles sobre screenshots o cifras viejas pegadas en markdown.
+- Python `>=3.11,<3.12`
 
-## Setup Local
+Bootstrap:
+
 ```bash
 brew install python@3.11
 ./scripts/dev/bootstrap.sh
@@ -390,69 +238,9 @@ source .venv/bin/activate
 python --version
 ```
 
-Versión permitida para v1: `>=3.11,<3.12`.
+## Non-Claims
 
-Infra local:
-
-```bash
-docker compose up -d postgres rabbitmq
-export POSTGRES_DSN=postgresql://credit:credit@localhost:5432/credit_ai_ops
-make migrate
-```
-
-## Compuertas De Calidad
-Comandos locales principales:
-
-- `make lint`
-- `make type-check`
-- `make pyright-check`
-- `make docs-audience-lint`
-- `make unit-tests`
-- `make coverage-gate`
-- `make security-scan`
-- `make secret-scan`
-- `make contract-lint`
-- `make adr-gate`
-- `make cybersec-posture`
-
-Compuerta rápida antes de commit:
-
-```bash
-make pre-commit-gate
-```
-
-## Cómo Leer El Repositorio En Orden
-Para una lectura ejecutiva:
-
-1. `README.md`
-2. `docs/executive/brief.md`
-3. `docs/runbooks/recruiter-demo.md`
-4. `build/recruiter-demo-report.md`
-5. `build/reviewer-scorecard.md`
-
-Para una lectura técnica:
-
-1. `schemas/openapi/*.yaml`
-2. `tests/integration/test_async_credit_chain.py`
-3. `tests/e2e/test_gateway_http_stack.py`
-4. `services/mlops/src/mlops_service/lifecycle.py`
-5. `services/scoring/src/scoring_service/runtime.py`
-6. `infra/terraform/container-apps/main.tf`
-7. `.github/workflows/ci.yml`
-8. `.github/workflows/build-sign.yml`
-
-## Guías Clave
-- Brief ejecutivo: `docs/executive/brief.md`
-- Matriz de alineación al rol: `docs/executive/role-alignment.md`
-- Runbook de demo: `docs/runbooks/recruiter-demo.md`
-- Flujo asíncrono: `docs/runbooks/async-flow.md`
-- Lifecycle MLOps: `docs/runbooks/mlops-lifecycle.md`
-- Ciberseguridad: `docs/runbooks/cybersecurity.md`
-- Observabilidad: `docs/runbooks/observability.md`
-
-## Cierre
-La idea central de este repositorio es simple:
-
-IA útil para banca no consiste solo en un modelo bueno.
-
-Consiste en un sistema completo, explicable, seguro, auditable, operable y defendible frente a una revisión dura.
+- This repository does not claim a bank production deployment.
+- It does not claim regulator approval, production SLO attainment, or managed-cloud disaster recovery proof.
+- It does not claim that every supporting service has equal operational weight; some services are intentionally narrower than the core credit path.
+- It does claim that the main runtime path, model lifecycle, and operational proof surface are strong enough to survive technical review without hand-waving.

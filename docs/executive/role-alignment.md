@@ -1,5 +1,11 @@
 # Matriz De Alineación Del Rol (Amrop - Especialista en IA)
 
+Volver a los documentos principales:
+
+- [README principal](../../README.md)
+- [README en Espanol](../../README.es.md)
+- [Version en English](role-alignment.en.md)
+
 **Idioma:** Español (principal) · [English version](role-alignment.en.md)
 
 Esta matriz mapea requisitos del rol contra evidencia verificable en código, pruebas y runbooks.
