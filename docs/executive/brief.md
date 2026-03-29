@@ -1,5 +1,11 @@
 # Brief Ejecutivo
 
+Volver a los documentos principales:
+
+- [README principal](../../README.md)
+- [README en Espanol](../../README.es.md)
+- [Version en English](brief.en.md)
+
 **Idioma:** Español (principal) · [English version](brief.en.md)
 
 ## Objetivo

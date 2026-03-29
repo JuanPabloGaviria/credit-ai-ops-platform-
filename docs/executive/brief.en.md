@@ -1,49 +1,60 @@
 # Executive Brief
 
-**Language:** [Versión en Español](brief.md) · English (primary)
+Back to the flagship documents:
 
-## Objective
-Validate end-to-end AI delivery capability for regulated banking: from use-case definition to production operation with model governance, security controls, and measurable reliability.
+- [Main README](../../README.md)
+- [Spanish executive brief](brief.md)
+- [Role-alignment matrix](role-alignment.en.md)
 
-## Value Thesis
-The platform demonstrates three banking-critical capabilities:
+## Executive Position
 
-1. Delivery of an AI product with operational impact.
-2. Engineering controls that reduce operational and model risk.
-3. Clear mapping from business outcomes to technical evidence.
+This repository presents credit decisioning as an operational system, not a model notebook with an API facade.
 
-## Expected Business Outcomes
-- reduced credit evaluation friction
-- improved decision turnaround time
-- stronger audit and compliance traceability
-- lower incident impact through explicit recovery paths (DLQ/replay)
+The business value is straightforward: faster and more explainable credit decisions with stronger control over operational risk, model risk, and audit reconstruction. The engineering value is that the same repo can answer three hard questions at once:
 
-## High-Level Technical Evidence
-- **Complete async chain:** `application -> feature -> scoring -> decision -> assistant -> audit`
-- **SQL persistence plus typed contracts:** versioned repositories and schemas
-- **Reproducible MLOps:** train/evaluate/register/promote plus model card generation
-- **Resilience controls:** timeout, retry, circuit-breaker, bulkhead, idempotency
-- **Security and supply chain controls:** SAST, dependency audit, secret scan, SBOM, image signing
+- what decision was made
+- which model and policy produced it
+- how confidently the system can recover when one of its dependencies fails
 
-## Metrics and SLOs
-- gateway p95 `<= 300ms`
-- async p95 `<= 2s`
-- 5xx rate `< 1%` over rolling 15-minute windows
+## What A Reviewer Should See
 
-These are operating targets. Static latency snapshots are not published in markdown because
-they stop being trustworthy once the environment, network path, or deployed topology changes.
-Current evidence should be regenerated before quoting external performance numbers.
+| Review question | Evidence path |
+| --- | --- |
+| Is this a real product flow instead of isolated ML work? | `POST /v1/gateway/credit-evaluate`, `tests/e2e/test_gateway_http_stack.py` |
+| Can the decision path be reconstructed later? | audit endpoints plus trace-linked events |
+| Is model promotion controlled? | `train -> evaluate -> register -> promote` lifecycle and signed artifacts |
+| Does async failure have recovery semantics? | outbox relay, DLQ, replay, idempotency |
+| Is the security posture executable? | `make bank-cybersec-gate` |
 
-## Reviewer Checklist
-1. Run `make recruiter-demo` and inspect `build/recruiter-demo-report.md`.
-2. Verify MLOps evidence in `build/recruiter-ml-evidence.json`.
-3. Review `build/reviewer-scorecard.md` for control-to-evidence mapping.
-4. Run `make bank-cybersec-gate` for security posture.
-5. Run `pytest -m integration -vv` for real operational reliability.
-6. Confirm traceability via `GET /v1/audit/traces/{trace_id}`.
+## Executive Summary Of The System
 
-## Key Architectural Decisions
-- domain microservices in a monorepo with unified quality gates
-- contract-first REST and event evolution
-- async integration with outbox/inbox consistency patterns
-- deterministic fallback mode for internal assistant behavior
+1. A credit application enters through the gateway.
+2. Features are materialized and persisted with history.
+3. Scoring resolves the promoted model package and produces a score.
+4. Decision logic applies policy and returns approve, review, or reject with rationale.
+5. Audit events preserve the operational path for review, debugging, and reconstruction.
+6. The MLOps lifecycle governs how new models become eligible for scoring.
+
+## Evidence That Matters Most
+
+- `make recruiter-demo`
+- `make release-ready`
+- `tests/integration/test_async_credit_chain.py`
+- `tests/e2e/test_gateway_http_stack.py`
+- `build/recruiter-ml-evidence.json`
+- `build/reviewer-scorecard.md`
+
+## Business Reading
+
+The repo is strongest when read as a control system around decision quality:
+
+- the model is governed, not just served
+- the decision is recorded, not just returned
+- the failure path is designed, not improvised
+- the review surface is reproducible, not manual
+
+## Honest Boundaries
+
+- No claim is made that this is a deployed bank production stack.
+- No claim is made that markdown latency numbers are portable without fresh reruns.
+- The claim that is made is narrower and stronger: the core credit path, its model governance loop, and its reviewer evidence are all concrete and reproducible.

@@ -115,7 +115,7 @@ jobs:
             "mlops:services/mlops/Dockerfile"
             "observability-audit:services/observability-audit/Dockerfile"
           )
-          trivy_image="public.ecr.aws/aquasecurity/trivy:0.56.1"
+          trivy_image="ghcr.io/aquasecurity/trivy:0.56.1"
           mkdir -p "$HOME/.cache/trivy"
           docker pull "$trivy_image"
           for entry in "${services[@]}"; do
