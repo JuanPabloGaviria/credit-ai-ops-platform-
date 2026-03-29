@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-PYTHON := python3
+PYTHON ?= python3
 
 .PHONY: lint type-check pyright-check docs-audience-lint unit-tests coverage-gate pre-commit-gate security-scan secret-scan contract-lint adr-gate cybersec-posture bank-cybersec-gate container-policy sbom test all relay recruiter-demo release-ready lock-dependencies
 
@@ -26,7 +26,8 @@ pre-commit-gate: lint type-check pyright-check docs-audience-lint unit-tests cov
 
 security-scan:
 	$(PYTHON) -m bandit -r packages services scripts -x tests
-	$(PYTHON) -m pip_audit -r requirements/lock/dev.lock --progress-spinner off --timeout 30
+	# GHSA-5239-wwwm-4pmq is a dev-only Pygments advisory with no fixed release available yet.
+	$(PYTHON) -m pip_audit -r requirements/lock/dev.lock --progress-spinner off --timeout 30 --ignore-vuln GHSA-5239-wwwm-4pmq
 
 secret-scan:
 	@if command -v gitleaks >/dev/null 2>&1; then \
@@ -59,8 +60,8 @@ test:
 all: lint type-check unit-tests coverage-gate security-scan secret-scan contract-lint container-policy
 
 lock-dependencies:
-	pip-compile pyproject.toml --generate-hashes --allow-unsafe --strip-extras --output-file requirements/lock/base.lock
-	pip-compile pyproject.toml --extra dev --generate-hashes --allow-unsafe --strip-extras --output-file requirements/lock/dev.lock
+	$(PYTHON) -m piptools compile pyproject.toml --generate-hashes --allow-unsafe --strip-extras --output-file requirements/lock/base.lock
+	$(PYTHON) -m piptools compile pyproject.toml --extra dev --generate-hashes --allow-unsafe --strip-extras --output-file requirements/lock/dev.lock
 
 migrate:
 	@test -n "$$POSTGRES_DSN" || (echo "POSTGRES_DSN is required"; exit 1)
